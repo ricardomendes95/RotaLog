@@ -22,7 +22,6 @@ const TripMap = forwardRef<MapView, TripMapProps>(({ children, style, ...props }
         maximumZ={19}
         flipY={false}
         tileSize={256}
-        attribution="© CARTO © OpenStreetMap contributors"
       />
       {children}
     </MapView>

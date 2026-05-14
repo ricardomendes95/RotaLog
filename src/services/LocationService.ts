@@ -1,10 +1,10 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { TripMetrics, Coordinate } from '@/types';
+import { TripMetrics, Coordinate, TransportType } from '@/types';
 import { haversineKm } from '@/utils/haversine';
 import { isAccuracyValid, isMoving } from '@/utils/filters';
 import { addCoordinate, finalizeTrip } from '@/services/DatabaseService';
-import { GPS_UPDATE_INTERVAL_MS, GPS_DISTANCE_INTERVAL_M } from '@/constants';
+import { TRANSPORT_GPS_CONFIG } from '@/constants';
 
 export const BACKGROUND_LOCATION_TASK = 'background-location-task';
 
@@ -18,7 +18,7 @@ interface TrackingState {
   movingSeconds: number;
   speedHistory: number[];
   speedCurrent: number;
-  isTracking: boolean;
+  minSpeedKmh: number;
 }
 
 let state: TrackingState | null = null;
@@ -29,8 +29,10 @@ export function onMetricsUpdate(cb: (metrics: TripMetrics, coord: Coordinate) =>
   metricsCallback = cb;
 }
 
-export async function startTracking(tripId: number): Promise<void> {
+export async function startTracking(tripId: number, transportType: TransportType): Promise<void> {
   await Location.requestForegroundPermissionsAsync();
+
+  const config = TRANSPORT_GPS_CONFIG[transportType];
 
   state = {
     tripId,
@@ -42,14 +44,14 @@ export async function startTracking(tripId: number): Promise<void> {
     movingSeconds: 0,
     speedHistory: [],
     speedCurrent: 0,
-    isTracking: true,
+    minSpeedKmh: config.minSpeedKmh,
   };
 
   subscription = await Location.watchPositionAsync(
     {
       accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: GPS_UPDATE_INTERVAL_MS,
-      distanceInterval: GPS_DISTANCE_INTERVAL_M,
+      timeInterval: config.timeIntervalMs,
+      distanceInterval: config.distanceIntervalM,
     },
     handleLocationUpdate,
   );
@@ -73,16 +75,18 @@ async function handleLocationUpdate(loc: Location.LocationObject): Promise<void>
 
   await addCoordinate(state.tripId, coord);
 
+  const moving = isMoving(speed, state.minSpeedKmh);
+
   if (state.lastLat !== null && state.lastLng !== null) {
     const delta = haversineKm(state.lastLat, state.lastLng, latitude, longitude);
-    if (isMoving(speed)) {
+    if (moving) {
       state.totalDistanceKm += delta;
     }
   }
 
   if (state.lastUpdateTime !== null) {
     const elapsed = (now - state.lastUpdateTime) / 1000;
-    if (isMoving(speed)) {
+    if (moving) {
       state.movingSeconds += elapsed;
     }
   }
@@ -90,7 +94,7 @@ async function handleLocationUpdate(loc: Location.LocationObject): Promise<void>
   const speedKmh = speed !== null ? speed * 3.6 : 0;
   state.speedCurrent = speedKmh;
 
-  if (isMoving(speed) && speedKmh > 0) {
+  if (moving && speedKmh > 0) {
     state.speedHistory.push(speedKmh);
   }
 
@@ -151,11 +155,14 @@ export async function stopTracking(): Promise<TripMetrics> {
   return metrics;
 }
 
-// Registrar a task de background (deve ser chamado no nível do módulo, fora de componentes)
-TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: TaskManager.TaskManagerTaskBody) => {
-  if (error) return;
-  const { locations } = data as { locations: Location.LocationObject[] };
-  if (locations?.length > 0) {
-    await handleLocationUpdate(locations[locations.length - 1]);
-  }
-});
+try {
+  TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: TaskManager.TaskManagerTaskBody) => {
+    if (error) return;
+    const { locations } = data as { locations: Location.LocationObject[] };
+    if (locations?.length > 0) {
+      await handleLocationUpdate(locations[locations.length - 1]);
+    }
+  });
+} catch (e) {
+  console.warn('TaskManager.defineTask falhou:', e);
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { TripMetrics, Coordinate } from '@/types';
+import { TripMetrics, Coordinate, TransportType } from '@/types';
 import {
   startTracking,
   stopTracking,
@@ -16,7 +16,7 @@ const DEFAULT_METRICS: TripMetrics = {
   speedMin: 0,
 };
 
-export function useTrip(tripId: number) {
+export function useTrip(tripId: number, transportType: TransportType) {
   const [metrics, setMetrics] = useState<TripMetrics>(DEFAULT_METRICS);
   const [coordinates, setCoordinates] = useState<Coordinate[]>([]);
   const [isTracking, setIsTracking] = useState(false);
@@ -32,14 +32,14 @@ export function useTrip(tripId: number) {
       setCoordinates((prev) => [...prev, coord]);
     });
 
-    startTracking(tripId)
+    startTracking(tripId, transportType)
       .then(() => setIsTracking(true))
       .catch((e) => setError(String(e)));
 
     return () => {
-      // Limpeza: não chamar stopTracking aqui para não finalizar ao trocar de tela
+      // Não finalizar aqui para não encerrar ao trocar de tela acidentalmente
     };
-  }, [tripId]);
+  }, [tripId, transportType]);
 
   const finish = useCallback(async (): Promise<TripMetrics> => {
     setIsTracking(false);

@@ -43,7 +43,7 @@ export default function TripDetailScreen() {
       const saved = await saveToGallery(uri);
       Alert.alert(saved ? 'Salvo!' : 'Erro', saved ? 'Imagem salva na galeria.' : 'Permissão negada.');
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível salvar a imagem.');
+      Alert.alert('Erro ao salvar', String(e));
     }
   }
 
@@ -52,7 +52,7 @@ export default function TripDetailScreen() {
       const uri = await captureView(reportRef);
       await shareImage(uri);
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível compartilhar.');
+      Alert.alert('Erro ao compartilhar', String(e));
     }
   }
 

@@ -1,7 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import MapView from 'react-native-maps';
-import { Marker } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import TripMap from '@/components/Map/TripMap';
@@ -9,26 +8,41 @@ import RoutePolyline from '@/components/Map/RoutePolyline';
 import MetricsPanel from '@/components/Trip/MetricsPanel';
 import { useTrip } from '@/hooks/useTrip';
 import { RootStackParamList } from '@/types';
-import { TRANSPORT_ICONS, TRANSPORT_LABELS } from '@/constants';
+import { TRANSPORT_ICONS, TRANSPORT_LABELS, TRANSPORT_GPS_CONFIG } from '@/constants';
 
 type ActiveTripRouteProp = RouteProp<RootStackParamList, 'ActiveTrip'>;
 type ActiveTripNavProp = StackNavigationProp<RootStackParamList, 'ActiveTrip'>;
+
+const DEFAULT_REGION = {
+  latitude: -23.5505,
+  longitude: -46.6333,
+  latitudeDelta: 0.005,
+  longitudeDelta: 0.005,
+};
 
 export default function ActiveTripScreen() {
   const route = useRoute<ActiveTripRouteProp>();
   const navigation = useNavigation<ActiveTripNavProp>();
   const { tripId, transportType } = route.params;
-  const { metrics, coordinates, isTracking, error, finish } = useTrip(tripId);
+  const { metrics, coordinates, isTracking, error, finish } = useTrip(tripId, transportType);
   const mapRef = useRef<MapView>(null);
 
   const currentPos = coordinates.length > 0 ? coordinates[coordinates.length - 1] : null;
+  const zoomDelta = TRANSPORT_GPS_CONFIG[transportType].mapZoomDelta;
 
-  if (currentPos && mapRef.current) {
+  // Anima o mapa para a posição atual a cada novo ponto GPS recebido
+  useEffect(() => {
+    if (!currentPos || !mapRef.current) return;
     mapRef.current.animateToRegion(
-      { latitude: currentPos.latitude, longitude: currentPos.longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 },
+      {
+        latitude: currentPos.latitude,
+        longitude: currentPos.longitude,
+        latitudeDelta: zoomDelta,
+        longitudeDelta: zoomDelta,
+      },
       300,
     );
-  }
+  }, [currentPos, zoomDelta]);
 
   async function handleFinish() {
     Alert.alert('Finalizar trajeto?', 'Deseja encerrar e salvar o percurso?', [
@@ -57,19 +71,22 @@ export default function ActiveTripScreen() {
         style={styles.map}
         initialRegion={
           currentPos
-            ? { latitude: currentPos.latitude, longitude: currentPos.longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 }
-            : { latitude: -23.5505, longitude: -46.6333, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+            ? { latitude: currentPos.latitude, longitude: currentPos.longitude, latitudeDelta: zoomDelta, longitudeDelta: zoomDelta }
+            : DEFAULT_REGION
         }
-        scrollEnabled={false}
-        zoomEnabled={false}
       >
-        <RoutePolyline coordinates={coordinates} />
+        <RoutePolyline coordinates={coordinates} showStartMarker />
         {currentPos && (
           <Marker
             coordinate={{ latitude: currentPos.latitude, longitude: currentPos.longitude }}
             title="Você"
-            pinColor="#FF4500"
-          />
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges
+          >
+            <View style={styles.marker}>
+              <Text style={styles.markerIcon}>{TRANSPORT_ICONS[transportType]}</Text>
+            </View>
+          </Marker>
         )}
       </TripMap>
 
@@ -114,4 +131,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   finishBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  marker: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#ffffff',
+    borderWidth: 3,
+    borderColor: '#FF4500',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerIcon: { fontSize: 24 },
 });

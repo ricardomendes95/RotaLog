@@ -1,7 +1,6 @@
+import { TransportType } from '@/types';
+
 export const MIN_ACCURACY_METERS = 30;
-export const MIN_SPEED_KMH = 0.5;
-export const GPS_UPDATE_INTERVAL_MS = 2000;
-export const GPS_DISTANCE_INTERVAL_M = 5;
 
 // CARTO tiles: gratuito, sem API key, baseado em dados OSM, sem bloqueio por User-Agent
 export const OSM_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
@@ -9,14 +8,28 @@ export const OSM_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager
 export const ROUTE_COLOR = '#FF4500';
 export const ROUTE_WIDTH = 4;
 
-export const TRANSPORT_LABELS: Record<string, string> = {
+export interface TransportGpsConfig {
+  timeIntervalMs: number;
+  distanceIntervalM: number;
+  minSpeedKmh: number;
+  mapZoomDelta: number;
+}
+
+export const TRANSPORT_GPS_CONFIG: Record<TransportType, TransportGpsConfig> = {
+  car:        { timeIntervalMs: 2000, distanceIntervalM: 5, minSpeedKmh: 0.5, mapZoomDelta: 0.005 },
+  motorcycle: { timeIntervalMs: 2000, distanceIntervalM: 5, minSpeedKmh: 0.5, mapZoomDelta: 0.005 },
+  bike:       { timeIntervalMs: 1500, distanceIntervalM: 3, minSpeedKmh: 0.3, mapZoomDelta: 0.003 },
+  walk:       { timeIntervalMs: 1000, distanceIntervalM: 2, minSpeedKmh: 0.3, mapZoomDelta: 0.002 },
+};
+
+export const TRANSPORT_LABELS: Record<TransportType, string> = {
   car: 'Carro',
   motorcycle: 'Moto',
   bike: 'Bike',
   walk: 'A Pé',
 };
 
-export const TRANSPORT_ICONS: Record<string, string> = {
+export const TRANSPORT_ICONS: Record<TransportType, string> = {
   car: '🚗',
   motorcycle: '🏍️',
   bike: '🚲',

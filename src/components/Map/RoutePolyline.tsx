@@ -6,9 +6,14 @@ import { ROUTE_COLOR, ROUTE_WIDTH } from '@/constants';
 interface RoutePolylineProps {
   coordinates: Coordinate[];
   showMarkers?: boolean;
+  showStartMarker?: boolean;
 }
 
-export default function RoutePolyline({ coordinates, showMarkers = false }: RoutePolylineProps) {
+export default function RoutePolyline({
+  coordinates,
+  showMarkers = false,
+  showStartMarker = false,
+}: RoutePolylineProps) {
   if (coordinates.length < 2) return null;
 
   const points = coordinates.map((c) => ({
@@ -26,11 +31,11 @@ export default function RoutePolyline({ coordinates, showMarkers = false }: Rout
         strokeColor={ROUTE_COLOR}
         strokeWidth={ROUTE_WIDTH}
       />
+      {(showMarkers || showStartMarker) && (
+        <Marker coordinate={first} title="Início" pinColor="green" />
+      )}
       {showMarkers && (
-        <>
-          <Marker coordinate={first} title="Início" pinColor="green" />
-          <Marker coordinate={last} title="Fim" pinColor="red" />
-        </>
+        <Marker coordinate={last} title="Fim" pinColor="red" />
       )}
     </>
   );
