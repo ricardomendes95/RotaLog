@@ -10,6 +10,7 @@ export interface Coordinate {
 
 export interface Trip {
   id: number;
+  name?: string;
   transportType: TransportType;
   startedAt: string;
   finishedAt: string | null;

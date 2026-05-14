@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Coordinate, Trip, TransportType, TripMetrics } from '@/types';
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -47,6 +48,11 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_coords_trip ON coordinates(trip_id);
     CREATE INDEX IF NOT EXISTS idx_trips_date  ON trips(started_at);
   `);
+
+  // Migration: adiciona coluna name se ainda não existir
+  try {
+    await database.execAsync('ALTER TABLE trips ADD COLUMN name TEXT;');
+  } catch {}
 }
 
 export async function createTrip(
@@ -111,6 +117,11 @@ export async function finalizeTrip(
   );
 }
 
+export async function renameTrip(tripId: number, name: string): Promise<void> {
+  const database = await getDb();
+  await database.runAsync('UPDATE trips SET name = ? WHERE id = ?', [name.trim(), tripId]);
+}
+
 export async function getAllTrips(): Promise<Trip[]> {
   const database = await getDb();
   const rows = await database.getAllAsync<Record<string, unknown>>(
@@ -148,9 +159,46 @@ export async function deleteTrip(tripId: number): Promise<void> {
   await database.runAsync('DELETE FROM trips WHERE id = ?', [tripId]);
 }
 
+export async function exportHistory(): Promise<string> {
+  const trips = await getAllTrips();
+  const full = await Promise.all(
+    trips.map(async (t) => ({ ...t, coordinates: await getCoordinatesByTripId(t.id) })),
+  );
+  const json = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), trips: full }, null, 2);
+  const date = new Date().toISOString().slice(0, 10);
+  const path = `${FileSystem.cacheDirectory}rotalog-backup-${date}.json`;
+  await FileSystem.writeAsStringAsync(path, json, { encoding: FileSystem.EncodingType.UTF8 });
+  return path;
+}
+
+export async function importHistory(fileUri: string): Promise<number> {
+  const json = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+  const data = JSON.parse(json) as { version: number; trips: (Trip & { coordinates: Coordinate[] })[] };
+  if (data.version !== 1) throw new Error('Formato de backup não suportado.');
+  let count = 0;
+  for (const t of data.trips) {
+    const newId = await createTrip(t.transportType, t.startedAt, t.startLat ?? 0, t.startLng ?? 0);
+    await finalizeTrip(
+      newId,
+      { distanceKm: t.distanceKm, durationTotal: t.durationTotal, durationMoving: t.durationMoving,
+        speedCurrent: 0, speedAvg: t.speedAvg, speedMax: t.speedMax, speedMin: t.speedMin },
+      t.finishedAt ?? new Date().toISOString(),
+      t.endLat ?? 0,
+      t.endLng ?? 0,
+    );
+    if (t.name) await renameTrip(newId, t.name);
+    for (const c of t.coordinates ?? []) {
+      await addCoordinate(newId, c);
+    }
+    count++;
+  }
+  return count;
+}
+
 function rowToTrip(r: Record<string, unknown>): Trip {
   return {
     id: r.id as number,
+    name: (r.name as string | null) ?? undefined,
     transportType: r.transport_type as TransportType,
     startedAt: r.started_at as string,
     finishedAt: r.finished_at as string | null,

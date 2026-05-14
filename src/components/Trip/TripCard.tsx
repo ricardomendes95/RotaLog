@@ -8,16 +8,22 @@ interface TripCardProps {
   trip: Trip;
   onPress: () => void;
   onDelete: () => void;
+  onRename: () => void;
 }
 
-export default function TripCard({ trip, onPress, onDelete }: TripCardProps) {
+export default function TripCard({ trip, onPress, onDelete, onRename }: TripCardProps) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.left}>
         <Text style={styles.icon}>{TRANSPORT_ICONS[trip.transportType]}</Text>
       </View>
       <View style={styles.middle}>
-        <Text style={styles.type}>{TRANSPORT_LABELS[trip.transportType]}</Text>
+        <Text style={styles.type} numberOfLines={1}>
+          {trip.name ?? TRANSPORT_LABELS[trip.transportType]}
+        </Text>
+        {trip.name && (
+          <Text style={styles.subtype}>{TRANSPORT_LABELS[trip.transportType]}</Text>
+        )}
         <Text style={styles.date}>{formatDate(trip.startedAt)}</Text>
         <View style={styles.stats}>
           <Text style={styles.stat}>📍 {formatDistance(trip.distanceKm)}</Text>
@@ -25,9 +31,14 @@ export default function TripCard({ trip, onPress, onDelete }: TripCardProps) {
           <Text style={styles.stat}>⚡ {trip.speedAvg.toFixed(1)} km/h</Text>
         </View>
       </View>
-      <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-        <Text style={styles.deleteIcon}>🗑️</Text>
-      </TouchableOpacity>
+      <View style={styles.actions}>
+        <TouchableOpacity style={styles.actionBtn} onPress={onRename} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.actionIcon}>✏️</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionBtn} onPress={onDelete} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.actionIcon}>🗑️</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -58,6 +69,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 2,
   },
+  subtype: {
+    color: '#FF4500',
+    fontSize: 11,
+    marginBottom: 2,
+  },
   date: {
     color: '#888',
     fontSize: 12,
@@ -72,10 +88,15 @@ const styles = StyleSheet.create({
     color: '#ccc',
     fontSize: 12,
   },
-  deleteBtn: {
+  actions: {
+    flexDirection: 'column',
+    gap: 8,
+    alignItems: 'center',
+  },
+  actionBtn: {
     padding: 4,
   },
-  deleteIcon: {
-    fontSize: 20,
+  actionIcon: {
+    fontSize: 18,
   },
 });

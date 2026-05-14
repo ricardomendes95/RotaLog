@@ -5,6 +5,7 @@ import {
   getTripById,
   getCoordinatesByTripId,
   deleteTrip,
+  renameTrip,
 } from '@/services/DatabaseService';
 
 export function useTrips() {
@@ -26,7 +27,12 @@ export function useTrips() {
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
   }, []);
 
-  return { trips, loading, loadTrips, removeTrip };
+  const rename = useCallback(async (tripId: number, name: string) => {
+    await renameTrip(tripId, name);
+    setTrips((prev) => prev.map((t) => t.id === tripId ? { ...t, name } : t));
+  }, []);
+
+  return { trips, loading, loadTrips, removeTrip, renameTrip: rename };
 }
 
 export function useTripDetail(tripId: number) {
