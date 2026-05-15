@@ -40,6 +40,15 @@ export default function TripDetailScreen() {
 
   const coordPoints = coordinates.map((c) => ({ latitude: c.latitude, longitude: c.longitude }));
 
+  function fitToRoute() {
+    if (coordPoints.length > 1 && mapRef.current) {
+      mapRef.current.fitToCoordinates(coordPoints, {
+        edgePadding: { top: 40, right: 40, bottom: 40, left: 40 },
+        animated: true,
+      });
+    }
+  }
+
   async function handleSave() {
     try {
       const uri = await captureWithFit(reportRef, mapRef, coordPoints);
@@ -117,17 +126,28 @@ export default function TripDetailScreen() {
             </View>
           </View>
 
-          <TripMap
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={
-              trip.startLat && trip.startLng
-                ? { latitude: trip.startLat, longitude: trip.startLng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
-                : { latitude: -23.5505, longitude: -46.6333, latitudeDelta: 0.02, longitudeDelta: 0.02 }
-            }
-          >
-            <RoutePolyline coordinates={coordinates} showMarkers />
-          </TripMap>
+          <View style={styles.mapWrapper}>
+            <TripMap
+              ref={mapRef}
+              style={styles.map}
+              initialRegion={
+                trip.startLat && trip.startLng
+                  ? { latitude: trip.startLat, longitude: trip.startLng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+                  : { latitude: -23.5505, longitude: -46.6333, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+              }
+            >
+              <RoutePolyline coordinates={coordinates} showMarkers />
+            </TripMap>
+            {coordPoints.length > 1 && (
+              <TouchableOpacity
+                style={styles.fitBtn}
+                onPress={fitToRoute}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.fitBtnText}>⊡</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.metricsGrid}>
             <MetricRow label="Distância" value={formatDistance(trip.distanceKm)} />
@@ -239,7 +259,22 @@ const styles = StyleSheet.create({
   reportType: { color: '#fff', fontSize: 17, fontWeight: '700' },
   reportSubtype: { color: '#FF4500', fontSize: 12, marginTop: 1 },
   reportDate: { color: '#aaa', fontSize: 13, marginTop: 2 },
+  mapWrapper: { position: 'relative' },
   map: { height: 220 },
+  fitBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(15, 52, 96, 0.9)',
+    borderWidth: 1,
+    borderColor: '#FF4500',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fitBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   metricsGrid: { padding: 16 },
   coordsSection: {
     paddingHorizontal: 16,
