@@ -9,6 +9,7 @@ import HomeScreen from '@/screens/HomeScreen';
 import ActiveTripScreen from '@/screens/ActiveTripScreen';
 import HistoryScreen from '@/screens/HistoryScreen';
 import TripDetailScreen from '@/screens/TripDetailScreen';
+import CompareRoutesScreen from '@/screens/CompareRoutesScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -37,6 +38,14 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Histórico',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="Compare"
+        component={CompareRoutesScreen}
+        options={{
+          tabBarLabel: 'Comparar',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⇄</Text>,
         }}
       />
     </Tab.Navigator>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 
 interface CurrentLocation {
@@ -8,32 +8,34 @@ interface CurrentLocation {
 
 export function useLocation() {
   const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const subRef = useRef<Location.LocationSubscription | null>(null);
 
   useEffect(() => {
-    requestPermission();
+    startWatching();
+    return () => { subRef.current?.remove(); };
   }, []);
 
-  async function requestPermission() {
+  async function startWatching() {
     setLoading(true);
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      setPermissionGranted(true);
-      try {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-        setCurrentLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-      } catch {
-        // Falha ao obter posição inicial — mapa usará região padrão
-      }
+    if (status !== 'granted') {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+    setPermissionGranted(true);
+    subRef.current?.remove();
+    subRef.current = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000, distanceInterval: 0 },
+      (loc) => {
+        setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        setAccuracy(loc.coords.accuracy ?? null);
+        setLoading(false);
+      },
+    );
   }
 
-  return { currentLocation, permissionGranted, loading, requestPermission };
+  return { currentLocation, accuracy, permissionGranted, loading, refreshLocation: startWatching };
 }

@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "expo.modules.pipandroid.pip-android-release-3:/layout-v21/notification_action_tombstone.xml",
+        "source": "expo.modules.pipandroid.pip-android-core-1.13.1-17:/layout-v21/notification_action_tombstone.xml"
+    },
+    {
+        "merged": "expo.modules.pipandroid.pip-android-release-3:/layout-v21/notification_template_icon_group.xml",
+        "source": "expo.modules.pipandroid.pip-android-core-1.13.1-17:/layout-v21/notification_template_icon_group.xml"
+    },
+    {
+        "merged": "expo.modules.pipandroid.pip-android-release-3:/layout-v21/notification_template_custom_big.xml",
+        "source": "expo.modules.pipandroid.pip-android-core-1.13.1-17:/layout-v21/notification_template_custom_big.xml"
+    },
+    {
+        "merged": "expo.modules.pipandroid.pip-android-release-3:/layout-v21/notification_action.xml",
+        "source": "expo.modules.pipandroid.pip-android-core-1.13.1-17:/layout-v21/notification_action.xml"
+    }
+]

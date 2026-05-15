@@ -18,9 +18,16 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.01,
 };
 
+function gpsColor(accuracy: number | null): string {
+  if (accuracy === null) return '#ff4444';
+  if (accuracy <= 15) return '#4caf50';
+  if (accuracy <= 50) return '#ff9800';
+  return '#ff4444';
+}
+
 export default function HomeScreen() {
   const navigation = useNavigation<HomeNavProp>();
-  const { currentLocation, permissionGranted, loading, requestPermission } = useLocation();
+  const { currentLocation, accuracy, permissionGranted, loading, refreshLocation } = useLocation();
   const [transport, setTransport] = useState<TransportType>('car');
   const [starting, setStarting] = useState(false);
   const mapRef = useRef<MapView>(null);
@@ -39,7 +46,7 @@ export default function HomeScreen() {
       Alert.alert(
         'Permissão necessária',
         'O app precisa de acesso à localização para rastrear o trajeto.',
-        [{ text: 'Conceder', onPress: requestPermission }, { text: 'Cancelar' }],
+        [{ text: 'Conceder', onPress: refreshLocation }, { text: 'Cancelar' }],
       );
       return;
     }
@@ -48,21 +55,44 @@ export default function HomeScreen() {
       return;
     }
 
+    if (accuracy !== null && accuracy > 50) {
+      Alert.alert(
+        'GPS impreciso',
+        `Sinal fraco (${Math.round(accuracy)} m). O trajeto pode ter menos precisão. Deseja iniciar mesmo assim?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Iniciar mesmo assim', onPress: doStart },
+        ],
+      );
+      return;
+    }
+
+    await doStart();
+  }
+
+  async function doStart() {
     setStarting(true);
     try {
       const tripId = await createTrip(
         transport,
         new Date().toISOString(),
-        currentLocation.latitude,
-        currentLocation.longitude,
+        currentLocation!.latitude,
+        currentLocation!.longitude,
       );
       navigation.navigate('ActiveTrip', { tripId, transportType: transport });
-    } catch (e) {
+    } catch {
       Alert.alert('Erro', 'Não foi possível iniciar o trajeto.');
     } finally {
       setStarting(false);
     }
   }
+
+  const color = gpsColor(loading ? null : accuracy);
+  const gpsLabel = loading
+    ? 'GPS: aguardando...'
+    : accuracy !== null
+    ? `GPS: ${Math.round(accuracy)} m`
+    : 'GPS: sem sinal';
 
   return (
     <View style={styles.container}>
@@ -74,14 +104,27 @@ export default function HomeScreen() {
 
       <View style={styles.panel}>
         <TransportSelector selected={transport} onSelect={setTransport} />
+
+        <View style={styles.gpsRow}>
+          <View style={[styles.gpsDot, { backgroundColor: color }]} />
+          <Text style={[styles.gpsText, { color }]}>{gpsLabel}</Text>
+          <TouchableOpacity
+            onPress={refreshLocation}
+            style={styles.refreshBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.refreshIcon}>🔄</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
-          style={[styles.startBtn, (starting || loading) && styles.startBtnDisabled]}
+          style={[styles.startBtn, (starting || loading || !currentLocation) && styles.startBtnDisabled]}
           onPress={handleStart}
-          disabled={starting || loading}
+          disabled={starting || loading || !currentLocation}
           activeOpacity={0.8}
         >
           <Text style={styles.startBtnText}>
-            {loading ? 'Obtendo localização...' : starting ? 'Iniciando...' : '▶  Iniciar Trajeto'}
+            {loading ? 'Aguardando GPS...' : starting ? 'Iniciando...' : '▶  Iniciar Trajeto'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -96,10 +139,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a2e',
     paddingBottom: 20,
   },
+  gpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 2,
+  },
+  gpsDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  gpsText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  refreshBtn: {
+    padding: 4,
+  },
+  refreshIcon: { fontSize: 16 },
   startBtn: {
     backgroundColor: '#FF4500',
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 8,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',

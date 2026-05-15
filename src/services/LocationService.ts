@@ -19,6 +19,7 @@ interface TrackingState {
   speedHistory: number[];
   speedCurrent: number;
   minSpeedKmh: number;
+  minDeltaKm: number;
 }
 
 let state: TrackingState | null = null;
@@ -45,6 +46,7 @@ export async function startTracking(tripId: number, transportType: TransportType
     speedHistory: [],
     speedCurrent: 0,
     minSpeedKmh: config.minSpeedKmh,
+    minDeltaKm: config.minDeltaKm,
   };
 
   subscription = await Location.watchPositionAsync(
@@ -79,7 +81,7 @@ async function handleLocationUpdate(loc: Location.LocationObject): Promise<void>
 
   if (state.lastLat !== null && state.lastLng !== null) {
     const delta = haversineKm(state.lastLat, state.lastLng, latitude, longitude);
-    if (moving) {
+    if (moving && delta >= state.minDeltaKm) {
       state.totalDistanceKm += delta;
     }
   }

@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml:2:13-83
+INJECTED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml:2:13-83
+	package
+		INJECTED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml
+	xmlns:android
+		ADDED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml:2:23-81
+uses-sdk
+INJECTED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml reason: use-sdk injection requested
+INJECTED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml
+INJECTED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml
+	android:targetSdkVersion
+		INJECTED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml
+	android:minSdkVersion
+		INJECTED from /project/modules/pip-android/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13559381846566607068.xml

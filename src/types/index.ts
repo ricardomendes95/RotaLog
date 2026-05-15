@@ -45,4 +45,5 @@ export type RootStackParamList = {
 export type BottomTabParamList = {
   Home: undefined;
   History: undefined;
+  Compare: undefined;
 };
