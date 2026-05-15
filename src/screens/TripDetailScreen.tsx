@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert,
-  ActivityIndicator, Linking, Share, Dimensions,
+  ActivityIndicator, Linking, Share,
 } from 'react-native';
 import MapView from 'react-native-maps';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
@@ -9,7 +9,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import TripMap from '@/components/Map/TripMap';
 import RoutePolyline from '@/components/Map/RoutePolyline';
 import { useTripDetail } from '@/hooks/useDatabase';
-import { captureView, saveToGallery, shareImage } from '@/services/ExportService';
+import { captureWithFit, saveToGallery, shareImage } from '@/services/ExportService';
 import { RootStackParamList } from '@/types';
 import { TRANSPORT_ICONS, TRANSPORT_LABELS } from '@/constants';
 import { formatDate, formatDistance, formatDuration, formatSpeed } from '@/utils/formatters';
@@ -17,14 +17,12 @@ import { formatDate, formatDistance, formatDuration, formatSpeed } from '@/utils
 type DetailRouteProp = RouteProp<RootStackParamList, 'TripDetail'>;
 type DetailNavProp = StackNavigationProp<RootStackParamList, 'TripDetail'>;
 
-const MAP_HEIGHT = Math.round(Dimensions.get('window').height * 0.38);
-
 export default function TripDetailScreen() {
   const route = useRoute<DetailRouteProp>();
   const navigation = useNavigation<DetailNavProp>();
   const { tripId } = route.params;
   const { trip, coordinates, loading, loadDetail } = useTripDetail(tripId);
-  const mapContainerRef = useRef<View>(null);
+  const reportRef = useRef<View>(null);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -35,23 +33,16 @@ export default function TripDetailScreen() {
     if (coordinates.length > 1 && mapRef.current) {
       mapRef.current.fitToCoordinates(
         coordinates.map((c) => ({ latitude: c.latitude, longitude: c.longitude })),
-        { edgePadding: { top: 50, right: 50, bottom: 50, left: 50 }, animated: true },
+        { edgePadding: { top: 40, right: 40, bottom: 40, left: 40 }, animated: true },
       );
     }
   }, [coordinates]);
 
-  function fitToRoute() {
-    if (coordinates.length > 1 && mapRef.current) {
-      mapRef.current.fitToCoordinates(
-        coordinates.map((c) => ({ latitude: c.latitude, longitude: c.longitude })),
-        { edgePadding: { top: 50, right: 50, bottom: 50, left: 50 }, animated: true },
-      );
-    }
-  }
+  const coordPoints = coordinates.map((c) => ({ latitude: c.latitude, longitude: c.longitude }));
 
   async function handleSave() {
     try {
-      const uri = await captureView(mapContainerRef);
+      const uri = await captureWithFit(reportRef, mapRef, coordPoints);
       const saved = await saveToGallery(uri);
       Alert.alert(saved ? 'Salvo!' : 'Erro', saved ? 'Imagem salva na galeria.' : 'Permissão negada.');
     } catch (e) {
@@ -61,7 +52,7 @@ export default function TripDetailScreen() {
 
   async function handleShare() {
     try {
-      const uri = await captureView(mapContainerRef);
+      const uri = await captureWithFit(reportRef, mapRef, coordPoints);
       await shareImage(uri);
     } catch (e) {
       Alert.alert('Erro ao compartilhar', String(e));
@@ -100,7 +91,6 @@ export default function TripDetailScreen() {
   }
 
   const hasCoords = trip.startLat !== null && trip.endLat !== null;
-  const tripLabel = trip.name ?? TRANSPORT_LABELS[trip.transportType];
 
   return (
     <View style={styles.container}>
@@ -111,87 +101,51 @@ export default function TripDetailScreen() {
         <Text style={styles.headerTitle}>Relatório do Trajeto</Text>
       </View>
 
-      {/* Mapa interativo — capturável como imagem */}
-      <View ref={mapContainerRef} collapsable={false} style={styles.mapContainer}>
-        <TripMap
-          ref={mapRef}
-          style={styles.map}
-          initialRegion={
-            trip.startLat && trip.startLng
-              ? { latitude: trip.startLat, longitude: trip.startLng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
-              : { latitude: -23.5505, longitude: -46.6333, latitudeDelta: 0.02, longitudeDelta: 0.02 }
-          }
-        >
-          <RoutePolyline coordinates={coordinates} showMarkers />
-        </TripMap>
+      <ScrollView>
+        {/* Container capturável como imagem */}
+        <View ref={reportRef} collapsable={false} style={styles.report}>
+          <View style={styles.reportHeader}>
+            <Text style={styles.reportIcon}>{TRANSPORT_ICONS[trip.transportType]}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reportType} numberOfLines={1}>
+                {trip.name ?? TRANSPORT_LABELS[trip.transportType]}
+              </Text>
+              {trip.name && (
+                <Text style={styles.reportSubtype}>{TRANSPORT_LABELS[trip.transportType]}</Text>
+              )}
+              <Text style={styles.reportDate}>{formatDate(trip.startedAt)}</Text>
+            </View>
+          </View>
 
-        {/* Overlay: nome do trajeto (topo) */}
-        <View style={styles.overlayTop} pointerEvents="none">
-          <Text style={styles.overlayIcon}>{TRANSPORT_ICONS[trip.transportType]}</Text>
-          <Text style={styles.overlayLabel} numberOfLines={1}>{tripLabel}</Text>
-          <Text style={styles.overlayDate}>{formatDate(trip.startedAt)}</Text>
+          <TripMap
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={
+              trip.startLat && trip.startLng
+                ? { latitude: trip.startLat, longitude: trip.startLng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+                : { latitude: -23.5505, longitude: -46.6333, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+            }
+          >
+            <RoutePolyline coordinates={coordinates} showMarkers />
+          </TripMap>
+
+          <View style={styles.metricsGrid}>
+            <MetricRow label="Distância" value={formatDistance(trip.distanceKm)} />
+            <MetricRow label="Tempo total" value={formatDuration(trip.durationTotal)} />
+            <MetricRow label="Em movimento" value={formatDuration(trip.durationMoving)} />
+            <MetricRow label="Velocidade média" value={formatSpeed(trip.speedAvg)} />
+            <MetricRow label="Velocidade máxima" value={formatSpeed(trip.speedMax)} />
+            <MetricRow label="Velocidade mínima" value={formatSpeed(trip.speedMin)} />
+          </View>
+
+          {hasCoords && (
+            <View style={styles.coordsSection}>
+              <Text style={styles.coordsTitle}>Pontos do Trajeto</Text>
+              <CoordRow label="Partida" lat={trip.startLat!} lng={trip.startLng!} />
+              <CoordRow label="Chegada" lat={trip.endLat!} lng={trip.endLng!} />
+            </View>
+          )}
         </View>
-
-        {/* Overlay: métricas principais (rodapé) */}
-        <View style={styles.overlayBottom} pointerEvents="none">
-          <Text style={styles.overlayStat}>📍 {formatDistance(trip.distanceKm)}</Text>
-          <View style={styles.overlayDivider} />
-          <Text style={styles.overlayStat}>⏱ {formatDuration(trip.durationTotal)}</Text>
-          <View style={styles.overlayDivider} />
-          <Text style={styles.overlayStat}>🏎 {formatSpeed(trip.speedMax)}</Text>
-        </View>
-
-        {/* Botão ajustar ao trajeto */}
-        <TouchableOpacity
-          style={styles.fitBtn}
-          onPress={fitToRoute}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.fitBtnText}>⊡</Text>
-        </TouchableOpacity>
-
-        {/* Faixa de métricas — incluída na captura */}
-        <View style={styles.metricsStrip}>
-          <View style={styles.metricCell}>
-            <Text style={styles.metricCellLabel}>Distância</Text>
-            <Text style={styles.metricCellValue}>{formatDistance(trip.distanceKm)}</Text>
-          </View>
-          <View style={styles.metricCellDivider} />
-          <View style={styles.metricCell}>
-            <Text style={styles.metricCellLabel}>Tempo total</Text>
-            <Text style={styles.metricCellValue}>{formatDuration(trip.durationTotal)}</Text>
-          </View>
-          <View style={styles.metricCellDivider} />
-          <View style={styles.metricCell}>
-            <Text style={styles.metricCellLabel}>Vel. média</Text>
-            <Text style={styles.metricCellValue}>{formatSpeed(trip.speedAvg)}</Text>
-          </View>
-          <View style={styles.metricCellDivider} />
-          <View style={styles.metricCell}>
-            <Text style={styles.metricCellLabel}>Vel. máxima</Text>
-            <Text style={styles.metricCellValue}>{formatSpeed(trip.speedMax)}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Métricas detalhadas + ações */}
-      <ScrollView style={styles.scroll}>
-        <View style={styles.metricsGrid}>
-          <MetricRow label="Distância" value={formatDistance(trip.distanceKm)} />
-          <MetricRow label="Tempo total" value={formatDuration(trip.durationTotal)} />
-          <MetricRow label="Em movimento" value={formatDuration(trip.durationMoving)} />
-          <MetricRow label="Velocidade média" value={formatSpeed(trip.speedAvg)} />
-          <MetricRow label="Velocidade máxima" value={formatSpeed(trip.speedMax)} />
-          <MetricRow label="Velocidade mínima" value={formatSpeed(trip.speedMin)} />
-        </View>
-
-        {hasCoords && (
-          <View style={styles.coordsSection}>
-            <Text style={styles.coordsTitle}>Pontos do Trajeto</Text>
-            <CoordRow label="Partida" lat={trip.startLat!} lng={trip.startLng!} />
-            <CoordRow label="Chegada" lat={trip.endLat!} lng={trip.endLng!} />
-          </View>
-        )}
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionBtn} onPress={handleSave} activeOpacity={0.8}>
@@ -266,75 +220,26 @@ const styles = StyleSheet.create({
   backBtn: { paddingRight: 8 },
   backText: { color: '#FF4500', fontSize: 15 },
   headerTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-
-  mapContainer: {
+  report: {
+    backgroundColor: '#1a1a2e',
+    margin: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#0f3460',
-  },
-  map: { height: MAP_HEIGHT },
-
-  metricsStrip: {
-    flexDirection: 'row',
-    backgroundColor: '#0f3460',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#1a3a60',
-  },
-  metricCell: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  metricCellLabel: { color: '#8899bb', fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
-  metricCellValue: { color: '#fff', fontSize: 15, fontWeight: '800', marginTop: 2 },
-  metricCellDivider: { width: 1, backgroundColor: '#1a3a60', marginVertical: 4 },
-
-  overlayTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(15, 52, 96, 0.82)',
-  },
-  overlayIcon: { fontSize: 20 },
-  overlayLabel: { color: '#fff', fontSize: 14, fontWeight: '700', flex: 1 },
-  overlayDate: { color: '#aaa', fontSize: 11 },
-
-  overlayBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 0,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(15, 52, 96, 0.82)',
-  },
-  overlayStat: { color: '#fff', fontSize: 13, fontWeight: '700', paddingHorizontal: 16 },
-  overlayDivider: { width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.2)' },
-
-  fitBtn: {
-    position: 'absolute',
-    top: 52,
-    right: 10,
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    backgroundColor: 'rgba(15, 52, 96, 0.9)',
     borderWidth: 1,
-    borderColor: '#FF4500',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#2a2a4e',
   },
-  fitBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-
-  scroll: { flex: 1 },
+  reportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    backgroundColor: '#0f3460',
+  },
+  reportIcon: { fontSize: 36 },
+  reportType: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  reportSubtype: { color: '#FF4500', fontSize: 12, marginTop: 1 },
+  reportDate: { color: '#aaa', fontSize: 13, marginTop: 2 },
+  map: { height: 220 },
   metricsGrid: { padding: 16 },
   coordsSection: {
     paddingHorizontal: 16,
